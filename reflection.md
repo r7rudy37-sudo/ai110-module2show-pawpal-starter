@@ -1,143 +1,50 @@
-# 🐾 PawPal+
+# PawPal+ Project Reflection
 
-PawPal+ is a local pet care planner built for the CodePath AI110 PawPal+ project. Add multiple pets, schedule care tasks, review conflicts, and generate a daily plan within your available time. The same Python backend powers a reproducible terminal demo and a working Streamlit interface.
+**Process note:** This is a factual reflection on the AI-assisted build in Codex. The student requested completion of the project; Codex generated the implementation, tests, documentation, and this process record. It does not claim that the student personally wrote the code, ran the checks, rejected a suggestion, or used separate chat sessions. Personal learning observations should be added by the student after reviewing the app.
 
-## Features
+## 1. System Design
 
-- Owner information and multiple pets, with stable IDs so matching names stay separate.
-- Add and edit tasks with a preferred date/time, duration, priority, and recurrence.
-- Sort chronologically and filter by pet, completion state, and date.
-- Show exact-time and duration-overlap warnings across every pet.
-- Complete an occurrence once; daily and weekly tasks automatically receive one successor.
-- Build a priority-based plan with non-overlapping blocks and explanations for moved or deferred tasks.
-- Keep data across Streamlit reruns and application restarts with validated JSON save/load.
-- Display household counts, task cards, readable tables, helpful empty states, warnings, and success messages.
+### a. Initial design
+The three main user actions are adding a pet, scheduling a care task, and viewing a daily plan. The initial design used four classes. `Task` held the activity, preferred datetime, repeat frequency, and completion state. `Pet` held identifying information and its tasks. `Owner` held multiple pets and collected all their tasks. `Scheduler` read from `Owner.get_all_tasks()` and put the tasks in time order. The initial implementation and diagram are preserved in the first project commit and `diagrams/uml_draft.mmd`.
 
-## Setup and run
+### b. Design changes
+The final design adds stable IDs, durations, priorities, validated editing, conflict detection, recurrence, and planning. IDs let two pets share a name without mixing up their tasks. Recurrence is managed by `Scheduler.mark_task_complete()` so the next task is attached to the correct pet. `Task.mark_complete()` only changes that occurrence's status. JSON save/load functions stay outside the UI and rebuild real dataclass instances. The final Mermaid source matches these responsibilities.
 
-Use Python 3.9 or later. The verified environment used Python 3.9.6, Streamlit 1.50.0, and pytest 8.4.2.
+## 2. Scheduling Logic and Tradeoffs
 
-```bash
-git clone https://github.com/r7rudy37-sudo/ai110-module2show-pawpal-starter.git
-cd ai110-module2show-pawpal-starter
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python main.py
-python -m streamlit run app.py
-```
+### a. Constraints and priorities
+The schedule uses the selected date, the owner's availability, task duration, completion state, preferred start time, and priority. High priority tasks get free blocks before medium and low priority tasks. Within a priority, the earlier preferred time comes first. All pets share one owner's time. The result explains moved tasks and lists tasks that do not fit.
 
-On Windows PowerShell, create the environment with `python -m venv .venv` and activate it with `.venv\Scripts\Activate.ps1`. Open the local address printed by Streamlit.
+### b. Tradeoffs
+The planner uses a readable greedy algorithm instead of searching every possible arrangement. This is easy to explain and test for a small household, but it may not fit the largest possible number of tasks. Preferred start times are flexible, not medical deadlines. Tasks cannot start earlier than their preferred time. An incomplete task from an earlier date is flagged for review instead of silently being moved. Repeated tasks advance from the original scheduled date, so late completion preserves the routine and can create another overdue occurrence. This is documented rather than hidden.
 
-## Implementation summary
+## 3. AI Collaboration
 
-| Class | Responsibility |
-|---|---|
-| `Task` | A validated care occurrence: description, preferred datetime, duration, priority, frequency, completion state, task ID, and pet ID. `mark_complete()` changes status once. |
-| `Pet` | Pet identity and its tasks; `add_task()` and `list_tasks()` manage the collection. |
-| `Owner` | Owner name and pets; `add_pet()`, `get_pet()`, and `get_all_tasks()` provide access. |
-| `Scheduler` | Reads `Owner.get_all_tasks()` to sort, filter, detect conflicts, complete recurring tasks, edit pending tasks, and build plans across multiple pets. |
+### a. How AI was used
+Codex read the project requirements and rubric, created a four-class design, edited several files, ran the demo, and generated behavioral tests. The agent workflow was useful because backend, interface, and tests needed consistent method names. The most useful strategy was turning requirements into specific observable checks, such as completing a daily task twice and verifying that only one next occurrence exists.
 
-`pawpal_system.py` contains the backend and JSON helpers. `main.py` is the deterministic CLI demo. `app.py` imports the backend and keeps the owner in `st.session_state`; its forms call real methods rather than keeping a separate list of UI dictionaries.
+This build used one continuous Codex chat. It did not follow the suggested separate-chat workflow. Files and meaningful commits separated the phases instead. Separate chats could help limit context in a future student-led build, but that benefit was not tested here.
 
-The draft architecture is in [diagrams/uml_draft.mmd](diagrams/uml_draft.mmd). The final source is in [diagrams/uml_final.mmd](diagrams/uml_final.mmd), also copied to [diagrams/uml.mmd](diagrams/uml.mmd) for starter-repository compatibility.
+### b. Judgment and verification
+A simple approach suggested in the course material is sorting `HH:MM` strings. The implementation instead uses full datetimes because recurring tasks need real dates and month/year rollover must be correct. Another reviewed alternative was exact-time-only conflict detection. The final code compares duration intervals, which also catches an 08:00 walk overlapping an 08:20 medication task. This was an agent design decision, not a claimed student rejection.
 
-## Smarter Scheduling
+The first full test run passed 25 checks and hit Streamlit's default three-second test timeout on an early app rerun. The UI test budget was increased to 15 seconds, and the interface tests then passed in about one second. The full suite was rerun successfully. No scheduling assertion was weakened to make tests pass.
 
-| Feature | Method | Behavior |
-|---|---|---|
-| Chronological sorting | `Scheduler.sort_by_time()` | Stable sorting by full datetime without changing stored task order. An explicitly empty list stays empty. |
-| Priority sorting | `Scheduler.sort_by_priority()` | High, medium, low; ties use preferred time. |
-| Filtering | `Scheduler.filter_tasks()` | Combine pet ID, completion state, and preferred date; includes all pets by default. |
-| Conflict detection | `Scheduler.detect_conflicts()` | Compare pending duration intervals across pets and midnight. Adjacent tasks are allowed. Return warnings rather than crash. |
-| Recurrence | `Scheduler.mark_task_complete()` | Mark an occurrence complete and attach one new task to the same pet, one or seven days after its scheduled date. Repeated completion does not duplicate it. |
-| Validated edits | `Scheduler.update_task()` | Replace a pending task only after all edited fields validate. |
-| Priority time-blocking | `Scheduler.build_plan()` | Place higher priorities first in the earliest free block on/after their preferred time, inside the selected same-day availability window. Explain moved tasks and return tasks that do not fit. |
+## 4. Testing and Verification
 
-Sorting costs O(n log n). Conflict detection and greedy placement can take O(n²) in the worst case, which is reasonable for a small household. The planner fills gaps when a task fits; it does not search for a globally optimal arrangement.
+### a. What was tested
+The tests verify sorting across two pets without mutating source order; filtering by pet, date, and status; daily and weekly recurrence across a year boundary; duplicate completion; missing task IDs; exact-time and partial overlaps; completed-task exclusion; midnight boundaries; priority-based time blocks; gap filling; exact end times; invalid inputs; validated edits; equal pet names; JSON round trips; and malformed saves. Streamlit tests exercise actual owner, pet, and task forms, editing, completion, reruns, persistence, conflict warnings, and generated plans.
 
-## Demo Walkthrough
+### b. Confidence
+The evidence supports a **4/5 technical confidence rating**, assigned by the agent for the implemented scope. All 26 tests pass. This is not a student self-rating. More testing would be useful for several browser sessions writing at once, very large schedules, daylight-saving transitions, and damaged files during a disk failure. The app is a local single-owner prototype using local wall-clock times.
 
-1. Run `python -m streamlit run app.py`. Save an owner name in the sidebar.
-2. Under **Pets**, add Mochi the dog and Luna the cat. On an empty household, **Load sample household** provides a ready-to-run example for the current day.
-3. Under **Care tasks**, add a 30-minute high priority walk for Mochi at 08:00 and a 10-minute high priority breakfast for Luna at 08:00. Set both to repeat daily. Task cards show the pet, date, time, duration, priority, and repeat rule. **Edit task** changes pending tasks.
-4. Under **Daily plan**, choose the date and availability. The warning identifies the two overlapping activities. **Generate schedule** reserves 08:00–08:30 for the walk and 08:30–08:40 for breakfast, explaining the change. With an 08:00–10:00 window, the sample household's evening walk is listed as deferred.
-5. Return to **Care tasks**, filter by pet/status, and click **Complete**. The original occurrence is kept in completed history and one new occurrence appears on the following date. Save/load retains this state across restarts.
+## 5. Reflection
 
-`main.py` uses a fixed October 26, 2026 date so its output is reproducible on any day. The browser's sample household uses the current local date instead.
+### a. What went well
+The same backend drives the terminal demo and Streamlit interface. This makes it possible to verify the core behavior without relying only on what the page looks like. The demonstration shows multi-pet sorting, a warning, a revised plan, a deferred task, and recurrence.
 
-## Sample Output
+### b. What could improve
+A future version could support multiple caregivers, deadline-aware scheduling, configurable missed-task handling, timezones, database transactions, and reminders. Medication timing would need dedicated rules rather than flexible preferred times.
 
-Captured from `python main.py`:
-
-```text
-PAWPAL+ | Today's Schedule | 2026-10-26
-TIME   PET      ACTIVITY           MIN  PRIORITY  REPEAT
-08:00  Mochi    Morning walk        30  high      daily
-08:00  Luna     Breakfast           10  high      daily
-09:00  Luna     Grooming            20  low       weekly
-18:00  Mochi    Evening walk        30  medium    daily
-
-Conflict warnings:
-! 2026-10-26 08:00 Mochi: Morning walk overlaps 08:00 Luna: Breakfast.
-
-Pending tasks for Luna:
-- Breakfast
-- Grooming
-
-Priority plan | available 08:00-10:00:
-08:00-08:30 | Mochi: Morning walk
-  High priority; earliest free block at/after preferred time.
-08:30-08:40 | Luna: Breakfast
-  High priority; earliest free block at/after preferred time. Moved from 08:00 to avoid a conflict or fit availability.
-09:00-09:20 | Luna: Grooming
-  Low priority; earliest free block at/after preferred time.
-Deferred: Evening walk. No free block fits before availability ends.
-
-Completed: Breakfast. Next occurrence: 2026-10-27 08:00.
-Repeated completion creates no duplicate: 5 total occurrences.
-```
-
-## Testing PawPal+
-
-```bash
-python -m pytest
-# Concise output used below:
-python -m pytest -q
-```
-
-The suite covers multi-pet collection and sorting, filtering, daily/weekly recurrence, completion idempotence, missing tasks, partial and exact overlaps, midnight and year boundaries, adjacent intervals, priority placement, gap filling, exact availability limits, empty schedules, invalid input, edits, equal pet names, save/load, and malformed JSON. Two Streamlit tests operate real forms through add, edit, completion, rerun, planning, and restart workflows, using temporary save files.
-
-Actual passing test output:
-
-```text
-..........................                                               [100%]
-26 passed in 1.05s
-```
-
-**Technical confidence: 4/5**, based on the passing automated suite and a live browser check of the populated household, overlap warning, and generated four-task plan. This rating describes the implemented prototype's scope.
-
-## Data persistence
-
-`save_owner()` writes JSON to a temporary file and replaces the destination after a successful write. `load_owner()` reconstructs validated `Owner`, `Pet`, and `Task` instances. `app.py` automatically saves each successful action to `data/pawpal.json` and loads it at startup. A malformed file produces an error and is left unchanged. Storage errors remain visible instead of reporting a successful save.
-
-For a separate data file, set `PAWPAL_DATA_PATH` before starting Streamlit. The default path is relative to the directory from which you launch the app. The `data/` folder and virtual environment are ignored by Git. The CLI demo does not read or write household data. Persistence changes are in `pawpal_system.py` and `app.py`; round-trip checks are in `tests/test_pawpal.py` and `tests/test_app.py`.
-
-## UI and output formatting
-
-`main.main()` prints aligned columns and explicit sections for warnings, filtering, plans, deferred tasks, and recurrence. `app.py` uses Streamlit tabs, `st.metric`, bordered task cards, `st.table`, `st.caption`, `st.success`, `st.warning`, and form validation. Plan explanations appear below the compact schedule so a long explanation does not squeeze the time columns.
-
-## Scope and limitations
-
-- One local owner, one availability window per day, and one browser session at a time. JSON is not a multi-user database.
-- Times are local wall-clock datetimes without timezone conversion or daylight-saving handling.
-- Preferred times can move later; they are not medical deadlines. The planner does not change original task times.
-- Tasks from earlier dates remain visible for review. Late completion advances recurrence from the scheduled date and can produce an overdue occurrence.
-- The greedy plan prioritizes higher importance; it does not guarantee the maximum number of tasks or an optimal overall schedule.
-- No reminders, authentication, external AI API calls, or automatic medication decisions are included.
-
-## AI collaboration
-
-This project was generated with Codex in response to the student's completion request. [reflection.md](reflection.md) and [ai_interactions.md](ai_interactions.md) honestly document the build, decisions, test correction, and limitations. The reflection does not invent personal student experiences or claim separate chat/model comparisons. The student should review the code, verify the behavior, and add their own learning observations.
-
-Starter: [CodePath PawPal+](https://github.com/codepath/ai110-module2show-pawpal-starter).
+### c. Key takeaway
+The engineering lesson illustrated by this build is that AI-generated code needs explicit constraints and independent checks. The human lead architect still needs to review the behavior, understand tradeoffs, and decide whether the result fits the real use case. The student's personal takeaway has not been supplied and is not invented here.
