@@ -1,50 +1,42 @@
-# PawPal+ Project Reflection
+# AI Interactions Log
 
-**Process note:** This is a factual reflection on the AI-assisted build in Codex. The student requested completion of the project; Codex generated the implementation, tests, documentation, and this process record. It does not claim that the student personally wrote the code, ran the checks, rejected a suggestion, or used separate chat sessions. Personal learning observations should be added by the student after reviewing the app.
+## Attribution and scope
+Tool: Codex desktop. One continuous AI-assisted session on October 26, 2026. No comparison between different AI models was performed. This log records agent work and design review; it does not invent student prompts or manual verification.
 
-## 1. System Design
+Actual student request: "do this project until complete finish this project until complete", with the CodePath AI110 Unit 5 link.
 
-### a. Initial design
-The three main user actions are adding a pet, scheduling a care task, and viewing a daily plan. The initial design used four classes. `Task` held the activity, preferred datetime, repeat frequency, and completion state. `Pet` held identifying information and its tasks. `Owner` held multiple pets and collected all their tasks. `Scheduler` read from `Owner.get_all_tasks()` and put the tasks in time order. The initial implementation and diagram are preserved in the first project commit and `diagrams/uml_draft.mmd`.
+## Agent Workflow
 
-### b. Design changes
-The final design adds stable IDs, durations, priorities, validated editing, conflict detection, recurrence, and planning. IDs let two pets share a name without mixing up their tasks. Recurrence is managed by `Scheduler.mark_task_complete()` so the next task is attached to the correct pet. `Task.mark_complete()` only changes that occurrence's status. JSON save/load functions stay outside the UI and rebuild real dataclass instances. The final Mermaid source matches these responsibilities.
+The requested task was to complete PawPal+. The agent read the live course instructions, grading rubric, and starter repository; forked the starter; created a draft design; implemented and ran the CLI before replacing the interface; added scheduling and persistence; tested the backend and interface; and wrote documentation.
 
-## 2. Scheduling Logic and Tradeoffs
+Files modified or added:
 
-### a. Constraints and priorities
-The schedule uses the selected date, the owner's availability, task duration, completion state, preferred start time, and priority. High priority tasks get free blocks before medium and low priority tasks. Within a priority, the earlier preferred time comes first. All pets share one owner's time. The result explains moved tasks and lists tasks that do not fit.
+- `pawpal_system.py`: four dataclasses/classes, sorting/filtering, interval conflicts, idempotent recurrence, validated editing, priority time-blocking, and JSON persistence.
+- `main.py`: reproducible two-pet CLI example with sorting, conflicts, filtering, a constrained plan, and recurrence.
+- `app.py`: actual backend calls, session state, forms, editing, completion, warnings, tables, and save/load.
+- `tests/test_pawpal.py`, `tests/test_app.py`: backend behavior and Streamlit workflow tests.
+- `diagrams/uml_draft.mmd`, `diagrams/uml_final.mmd`, `diagrams/uml.mmd`: initial and final architecture.
+- `README.md`, `reflection.md`, `.gitignore`, and `evidence/`: documentation, limitations, and captured verification output.
 
-### b. Tradeoffs
-The planner uses a readable greedy algorithm instead of searching every possible arrangement. This is easy to explain and test for a small household, but it may not fit the largest possible number of tasks. Preferred start times are flexible, not medical deadlines. Tasks cannot start earlier than their preferred time. An incomplete task from an earlier date is flagged for review instead of silently being moved. Repeated tasks advance from the original scheduled date, so late completion preserves the routine and can create another overdue occurrence. This is documented rather than hidden.
+The agent completed the implementation and ran automated checks and browser verification. Student review is still needed before treating the reflection as a personal account. No separate student testing or manual code correction is claimed.
 
-## 3. AI Collaboration
+## Design alternatives reviewed
 
-### a. How AI was used
-Codex read the project requirements and rubric, created a four-class design, edited several files, ran the demo, and generated behavioral tests. The agent workflow was useful because backend, interface, and tests needed consistent method names. The most useful strategy was turning requirements into specific observable checks, such as completing a daily task twice and verifying that only one next occurrence exists.
+These are design questions addressed by the agent during this build, not a fabricated transcript of student prompts or separate model responses.
 
-This build used one continuous Codex chat. It did not follow the suggested separate-chat workflow. Files and meaningful commits separated the phases instead. Separate chats could help limit context in a future student-led build, but that benefit was not tested here.
+| Question | Simple option | Chosen option and reason |
+|---|---|---|
+| How should tasks be ordered? | Sort `HH:MM` strings as suggested by the instructions. | Use a full datetime so tasks on different dates and recurring occurrences sort correctly. |
+| What counts as a conflict? | Equal start times only. | Compare half-open duration intervals, including across pets and midnight; adjacent intervals remain allowed. |
+| Where should recurrence live? | Generate a task every time the completion button is clicked. | Scheduler completes an occurrence only once and then attaches one successor to the same pet. |
+| How should availability work? | Show a sorted list even if everything cannot fit. | Rank by priority and find free blocks; return explicit deferred items without changing original preferred times. |
 
-### b. Judgment and verification
-A simple approach suggested in the course material is sorting `HH:MM` strings. The implementation instead uses full datetimes because recurring tasks need real dates and month/year rollover must be correct. Another reviewed alternative was exact-time-only conflict detection. The final code compares duration intervals, which also catches an 08:00 walk overlapping an 08:20 medication task. This was an agent design decision, not a claimed student rejection.
+## Verification and corrections
 
-The first full test run passed 25 checks and hit Streamlit's default three-second test timeout on an early app rerun. The UI test budget was increased to 15 seconds, and the interface tests then passed in about one second. The full suite was rerun successfully. No scheduling assertion was weakened to make tests pass.
+Initial full run: 25 checks passed; one UI check reached the default three-second AppTest timeout. The agent changed the AppTest timeout to 15 seconds, then ran both UI tests successfully and reran the full suite. The final suite has 26 passing checks. Tests use temporary paths and do not overwrite the live household.
 
-## 4. Testing and Verification
+The planner's scope is intentionally limited: one owner's time, a single same-day availability window, flexible preferred start times, and a greedy placement strategy. It does not guarantee a globally optimal plan or handle medical deadlines.
 
-### a. What was tested
-The tests verify sorting across two pets without mutating source order; filtering by pet, date, and status; daily and weekly recurrence across a year boundary; duplicate completion; missing task IDs; exact-time and partial overlaps; completed-task exclusion; midnight boundaries; priority-based time blocks; gap filling; exact end times; invalid inputs; validated edits; equal pet names; JSON round trips; and malformed saves. Streamlit tests exercise actual owner, pet, and task forms, editing, completion, reruns, persistence, conflict warnings, and generated plans.
+## Prompt comparison
 
-### b. Confidence
-The evidence supports a **4/5 technical confidence rating**, assigned by the agent for the implemented scope. All 26 tests pass. This is not a student self-rating. More testing would be useful for several browser sessions writing at once, very large schedules, daylight-saving transitions, and damaged files during a disk failure. The app is a local single-owner prototype using local wall-clock times.
-
-## 5. Reflection
-
-### a. What went well
-The same backend drives the terminal demo and Streamlit interface. This makes it possible to verify the core behavior without relying only on what the page looks like. The demonstration shows multi-pet sorting, a warning, a revised plan, a deferred task, and recurrence.
-
-### b. What could improve
-A future version could support multiple caregivers, deadline-aware scheduling, configurable missed-task handling, timezones, database transactions, and reminders. Medication timing would need dedicated rules rather than flexible preferred times.
-
-### c. Key takeaway
-The engineering lesson illustrated by this build is that AI-generated code needs explicit constraints and independent checks. The human lead architect still needs to review the behavior, understand tradeoffs, and decide whether the result fits the real use case. The student's personal takeaway has not been supplied and is not invented here.
+No two-model or separate-prompt experiment was conducted. The design-alternatives table above is a review of approaches within one agent workflow. No unsupported bonus claim is made for the rubric's model/prompt comparison category.
