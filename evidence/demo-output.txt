@@ -1,0 +1,25 @@
+PAWPAL+ | Today's Schedule | 2026-10-26
+TIME   PET      ACTIVITY           MIN  PRIORITY  REPEAT
+08:00  Mochi    Morning walk        30  high      daily
+08:00  Luna     Breakfast           10  high      daily
+09:00  Luna     Grooming            20  low       weekly
+18:00  Mochi    Evening walk        30  medium    daily
+
+Conflict warnings:
+! 2026-10-26 08:00 Mochi: Morning walk overlaps 08:00 Luna: Breakfast.
+
+Pending tasks for Luna:
+- Breakfast
+- Grooming
+
+Priority plan | available 08:00-10:00:
+08:00-08:30 | Mochi: Morning walk
+  High priority; earliest free block at/after preferred time.
+08:30-08:40 | Luna: Breakfast
+  High priority; earliest free block at/after preferred time. Moved from 08:00 to avoid a conflict or fit availability.
+09:00-09:20 | Luna: Grooming
+  Low priority; earliest free block at/after preferred time.
+Deferred: Evening walk. No free block fits before availability ends.
+
+Completed: Breakfast. Next occurrence: 2026-10-27 08:00.
+Repeated completion creates no duplicate: 5 total occurrences.
